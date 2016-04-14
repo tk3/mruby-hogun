@@ -1,25 +1,11 @@
 class Hogun
   def self.desc(usage, description)
-    @previous_defined ||= []
-    current_defined = instance_methods(false)
-    diff = current_defined - @previous_defined
-    if diff.length > 0    # TODO: 
-      @command_config ||= {}
-      @command_config[diff[0]] = @variables
-      @variables = {}
-    end
-    @variables ||= {}
+    update_command_config
     @variables[:desc] = {:usage => usage, :description => description}
-    @previous_defined = instance_methods(false)
   end
 
   def self.start(argv = ARGV)
-    current_defined = instance_methods(false)
-    diff = current_defined - @previous_defined
-    if diff.length > 0    # TODO: 
-      @command_config ||= {}
-      @command_config[diff[0]] = @variables
-    end
+    update_command_config
 
     cmd = ARGV[0] || ""
     if cmd.empty? || (cmd == "help" && argv.length == 1)
@@ -69,4 +55,18 @@ class Hogun
 
     return 0
   end
+
+  def self.update_command_config
+    current_defined = instance_methods(false)
+    @previous_defined ||= []
+    @variables        ||= {}
+    diff = current_defined - @previous_defined
+    if diff.length > 0
+      @command_config ||= {}
+      @command_config[diff[0]] = @variables
+      @variables = {}
+    end
+    @previous_defined = current_defined
+  end
+
 end
