@@ -1,45 +1,46 @@
 class Hogun
+  attr_accessor :options
+
+  def initialize(opts)
+    self.options = opts
+  end
+
   def self.desc(usage, description)
-    @previous_defined ||= []
-    current_defined = instance_methods(false)
-    diff = current_defined - @previous_defined
-    if diff.length > 0    # TODO: 
-      @command_config ||= {}
-      @command_config[diff[0]] = @variables
-      @variables = {}
-    end
-    @variables ||= {}
+    update_command_config
     @variables[:desc] = {:usage => usage, :description => description}
-    @previous_defined = instance_methods(false)
+  end
+
+  def self.option(name, options = {})
+    update_command_config
+    @variables[:option] ||= {}
+    @variables[:option][name] = options
   end
 
   def self.start(argv = ARGV)
-    current_defined = instance_methods(false)
-    diff = current_defined - @previous_defined
-    if diff.length > 0    # TODO: 
-      @command_config ||= {}
-      @command_config[diff[0]] = @variables
-    end
+    update_command_config
 
-    cmd = ARGV[0] || ""
-    if cmd.empty? || (cmd == "help" && argv.length == 1)
+    @args = argv.dup
+
+    cmd = @args.shift || ""
+    if cmd.empty? || (cmd == "help" && @args.empty?)
       print_usage
       return 0
     end
-    if cmd == "help" && argv.length > 1
-      return print_command_help(argv[1])
+    if cmd == "help"
+      return print_command_help(@args.first)
     end
 
-    task = self.new
+    option_parser
+
+    task = self.new(@options)
     if !task.respond_to?(cmd.to_sym)
       $stderr.puts %Q(Could not find command "#{cmd}".)
       return 1
     end
-
-    task_argv = argv.dup.drop(1)
-    task.send(cmd.to_sym, *(task_argv))
+    
+    task.send(cmd.to_sym, *(@args))
   rescue ArgumentError => e
-    $stderr.puts %Q(ERROR: "#{$0} #{cmd}" was called with arguments #{task_argv})
+    $stderr.puts %Q(ERROR: "#{$0} #{cmd}" was called with arguments #{@args})
   end
 
   private
@@ -60,13 +61,51 @@ class Hogun
       $stderr.puts %Q(Could not find command "#{cmd}".)
       return 1
     end
-    desc = @command_config[cmd.to_sym][:desc]
+    config = @command_config[cmd.to_sym]
+    desc = config[:desc]
 
     puts "Usage:"
-    puts "  %s" % [$0 + " " + desc[:usage]]
-    puts ""
-    puts "%s" % [desc[:description]]
+    puts "  #{$0} #{desc[:usage]}"
+    puts
+
+    if config.key?(:option)
+      puts "Options:"
+      config[:option].keys.each do |name|
+        puts "  [--#{name} #{name.upcase}]"
+      end
+      puts
+    end
+
+    puts desc[:description]
 
     return 0
+  end
+
+  def self.update_command_config
+    current_defined = instance_methods(false)
+    @previous_defined ||= []
+    @variables        ||= {}
+    diff = current_defined - @previous_defined
+    if diff.length > 0
+      @command_config ||= {}
+      @command_config[diff[0]] = @variables
+      @variables = {}
+    end
+    @previous_defined = current_defined
+  end
+
+  def self.option_parser
+    @options ||= {}
+
+    while arg = @args.shift
+      match = /^--(\w+)$/.match(arg)
+
+      if match
+        @options[match[1].to_sym] = @args.shift
+      else
+        @args.unshift(arg)
+        break
+      end
+    end
   end
 end
