@@ -47,9 +47,11 @@ class Hogun
   def self.print_usage
     puts "Commands:"
 
-    @command_config.each_key do |key|
-      desc = @command_config[key][:desc]
-      puts "  %s" % [$0 + " " + desc[:usage] +  "  # " + desc[:description]]
+    unless @command_config.nil?
+      @command_config.each_key do |key|
+        desc = @command_config[key][:desc]
+        puts "  %s" % [$0 + " " + desc[:usage] +  "  # " + desc[:description]]
+      end
     end
 
     puts "  #{$0} help [COMMAND]  # Describe available commands or one specific command"
